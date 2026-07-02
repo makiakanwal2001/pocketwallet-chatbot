@@ -1,4 +1,4 @@
-
+version: "3.9"
 
 services:
   postgres:
@@ -24,6 +24,14 @@ services:
     volumes:
       - ollama_models:/root/.ollama
 
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadata:/chroma/chroma
+
 volumes:
   pgdata:
   ollama_models:
+  chromadata:
