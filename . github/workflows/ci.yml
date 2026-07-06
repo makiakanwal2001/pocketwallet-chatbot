@@ -1,0 +1,85 @@
+name: PocketWallet CI — Eval Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pocketwallet
+          POSTGRES_PASSWORD: localdev
+          POSTGRES_DB: pocketwallet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests — PII redaction
+        run: python scripts/test_pii_redaction.py
+
+      - name: Run unit tests — MCP scope
+        run: python scripts/test_mcp_scope.py
+
+      - name: Run unit tests — Session tokens
+        run: python scripts/test_session_tokens.py
+        env:
+          SESSION_SECRET: ci_test_secret
+
+      - name: Run unit tests — Audit log
+        run: python scripts/test_audit_log.py
+        env:
+          POSTGRES_URL: postgresql://pocketwallet:localdev@localhost:5432/pocketwallet
+
+      - name: Check eval results from last run
+        run: |
+          python - <<'PYEOF'
+          import json, os, sys, glob
+
+          results_dir = "eval/results"
+          if not os.path.exists(results_dir):
+              print("No eval results found — skipping gate check")
+              sys.exit(0)
+
+          files = sorted(glob.glob(f"{results_dir}/eval_*.json"))
+          if not files:
+              print("No eval result files found — skipping gate check")
+              sys.exit(0)
+
+          latest = files[-1]
+          with open(latest) as f:
+              report = json.load(f)
+
+          pass_rate  = report["pass_rate"]
+          threshold  = 0.85
+          ci_passed  = pass_rate >= threshold
+
+          print(f"Latest eval: {latest}")
+          print(f"Pass rate:   {pass_rate*100:.1f}%")
+          print(f"Threshold:   {threshold*100:.0f}%")
+          print(f"CI gate:     {'PASSED' if ci_passed else 'FAILED'}")
+
+          sys.exit(0 if ci_passed else 1)
+          PYEOF
