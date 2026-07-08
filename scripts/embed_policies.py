@@ -17,14 +17,13 @@ EMBED_MODEL  = "nomic-embed-text"
 CHROMA_PATH  = os.path.join(os.path.dirname(__file__), "..", "data", "chroma")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def get_embedding(text: str) -> list[float]:
-    """Call Ollama embeddings API and return the vector."""
-    resp = requests.post(f"{OLLAMA_HOST}/api/embeddings", json={
-        "model": EMBED_MODEL,
-        "prompt": text
+def __get_embedding(text: str) -> list[float]:
+    resp = requests.post(f"{OLLAMA_HOST}/api/embed", json={
+        "model":  EMBED_MODEL,
+        "input": text
     })
     resp.raise_for_status()
-    return resp.json()["embedding"]
+    return resp.json()["embeddings"][0]
 
 
 def chunk_markdown(text: str, source_file: str) -> list[dict]:
@@ -115,7 +114,7 @@ def main():
                 print(f"  [skip] {chunk_id} already exists")
                 continue
 
-            embedding = get_embedding(chunk["text"])
+            embedding = __get_embedding(chunk["text"])
 
             collection.add(
                 ids        = [chunk_id],

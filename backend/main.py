@@ -32,6 +32,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from agent.graph import run_agent
 
 app = FastAPI(title="PocketWallet API", version="1.0.0")
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
